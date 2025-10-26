@@ -107,26 +107,28 @@ version = "0.0.1"
 source = { virtual = "." }
 dependencies = [
     { name = "aioredis" },
-    { name = "black" },
     { name = "redis", extra = ["hiredis"] },
-    { name = "ruff" },
 ]
 
 [package.dev-dependencies]
 dev = [
+    { name = "black" },
     { name = "ipython" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "aioredis", specifier = ">=2.0.1" },
-    { name = "black", specifier = ">=25.9.0" },
     { name = "redis", extras = ["hiredis"], specifier = ">=7.0.0" },
-    { name = "ruff", specifier = ">=0.14.2" },
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "ipython", specifier = ">=9.6.0" }]
+dev = [
+    { name = "black", specifier = ">=25.9.0" },
+    { name = "ipython", specifier = ">=9.6.0" },
+    { name = "ruff", specifier = ">=0.14.2" },
+]
 
 [[package]]
 name = "hiredis"
