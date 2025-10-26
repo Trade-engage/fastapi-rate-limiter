@@ -5,7 +5,7 @@ pool, attaching the limiter instance to `FastAPI.state` for downstream
 dependencies and middleware to consume.
 """
 
-from typing import Callable, Literal
+from typing import Awaitable, Callable, Literal
 
 from .limiter import is_limited
 
@@ -63,35 +63,96 @@ class RateLimiter:
             await self.redis_connection_pool.aclose()
 
 
+async def _generate_key_based_on_ip(request: Request) -> str:
+    """Generate a rate-limit key based on the client's IP address.
+
+    Prefers the ``X-Forwarded-For`` header when present, using the first IP in
+    the list (the original client in typical proxy chains). Falls back to
+    ``request.client.host`` when the header is absent. If neither is available
+    (e.g., certain test scenarios), returns the string "unknown".
+
+    Args:
+        request: The current FastAPI request.
+
+    Returns:
+        A best-effort client IP string to use as a rate-limiting key.
+    """
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 class RateLimit:
+    """Per-route dependency enforcing a sliding-window rate limit.
+
+    Resolves a rate-limit key using an async ``key_function`` (defaults to
+    the client's IP via ``X-Forwarded-For`` or ``request.client.host``),
+    checks the current usage in Redis, and either raises an HTTP 429 or sets
+    standard rate-limit headers on the response.
+    """
     def __init__(
         self,
-        key: str | None,
         limit: int,
         window: int,
         fail_mode: Literal["open", "closed", "raise"] = "open",
-        key_function: Callable[[Request], str] | None = None,
+        key_function: Callable[[Request], Awaitable[str]] = _generate_key_based_on_ip,
     ) -> None:
-        self.key_function: Callable[[Request], str] | None = key_function
+        """Create a new rate-limiting dependency.
+
+        Args:
+            limit: Maximum number of allowed requests within the window.
+            window: Window size in seconds for the sliding window.
+            fail_mode: Behavior when Redis fails.
+                - "open" (default): allow requests on Redis errors
+                - "closed": treat Redis errors as limited
+                - "raise": propagate the Redis exception
+            key_function: Async function that computes the rate-limit key from
+                the ``Request``. Defaults to a function that derives the client
+                IP (preferring ``X-Forwarded-For``).
+        """
+        self.key_function: Callable[[Request], Awaitable[str]] = key_function
         self.limit: int = limit
         self.window: int = window
         self.fail_mode: Literal["open", "closed", "raise"] = fail_mode
-        self.key: str | None = key
 
-        if not self.key and not self.key_function:
-            raise ValueError("Either key or key_function must be provided")
 
-        if self.key and self.key_function:
-            raise ValueError("Only one of key or key_function must be provided")
 
     async def __call__(self, request: Request, response: Response) -> None:
-        key = self.key_function(request) if self.key_function else self.key
+        """Apply rate limiting for the current request.
+
+        Resolves the rate-limit key, queries Redis to determine usage, and
+        either raises an HTTP 429 or sets rate-limit headers on the response.
+
+        Args:
+            request: The incoming FastAPI request.
+            response: The outgoing FastAPI response to annotate with headers.
+
+        Raises:
+            ValueError: If the application ``RateLimiter`` is not initialized
+                on ``request.state.limiter``.
+            HTTPException: With status 429 when the request is limited.
+            Exception: If ``fail_mode='raise'`` and the Redis operation fails,
+                the underlying exception is propagated.
+
+        Returns:
+            None. Response headers set on success:
+            - ``X-RateLimit-Limit``
+            - ``X-RateLimit-Remaining``
+            - ``X-RateLimit-Reset`` (unix timestamp)
+        """
+        key = await self.key_function(request)
+        limiter: RateLimiter = request.state.limiter
+        
+        if not limiter:
+            raise ValueError("Limiter not found in request state, you must initialize the limiter first")
+        
         limited, limit, remaining, reset_time = await is_limited(
-            redis_client=self.redis_client,
+            redis_client=limiter.redis_client,
             key=key,
             limit=self.limit,
             window=self.window,
-            namespace_prefix=self.namespace_prefix,
+            namespace_prefix=limiter.namespace_prefix,
             fail_mode=self.fail_mode,
         )
         if limited:
