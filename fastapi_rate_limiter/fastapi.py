@@ -78,9 +78,12 @@ async def _generate_key_based_on_ip(request: Request) -> str:
         A best-effort client IP string to use as a rate-limiting key.
     """
     xff = request.headers.get("x-forwarded-for")
+    ip: str = "unknown"
     if xff:
-        return xff.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+        ip = xff.split(",")[0].strip()
+    if request.client:
+        ip = request.client.host
+    return f"ip:{ip}:{request.scope['route'].path}"
 
 
 class RateLimit:
@@ -117,7 +120,6 @@ class RateLimit:
         self.fail_mode: Literal["open", "closed", "raise"] = fail_mode
 
 
-
     async def __call__(self, request: Request, response: Response) -> None:
         """Apply rate limiting for the current request.
 
@@ -142,6 +144,7 @@ class RateLimit:
             - ``X-RateLimit-Reset`` (unix timestamp)
         """
         key = await self.key_function(request)
+        
         limiter: RateLimiter = request.state.limiter
         
         if not limiter:
