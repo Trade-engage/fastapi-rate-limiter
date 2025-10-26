@@ -6,7 +6,9 @@ dependencies and middleware to consume.
 """
 
 from typing import Callable, Literal
-from limiter.limiter import is_limited
+
+from .limiter import is_limited
+
 import redis.asyncio as redis
 from fastapi import FastAPI, HTTPException, Request, Response
 
