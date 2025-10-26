@@ -132,7 +132,7 @@ class RateLimit:
 
         Raises:
             ValueError: If the application ``RateLimiter`` is not initialized
-                on ``request.state.limiter``.
+                on ``request.app.state.limiter``.
             HTTPException: With status 429 when the request is limited.
             Exception: If ``fail_mode='raise'`` and the Redis operation fails,
                 the underlying exception is propagated.
@@ -145,7 +145,7 @@ class RateLimit:
         """
         key = await self.key_function(request)
         
-        limiter: RateLimiter = request.state.limiter
+        limiter: RateLimiter = request.app.state.limiter
         
         if not limiter:
             raise ValueError("Limiter not found in request state, you must initialize the limiter first")
