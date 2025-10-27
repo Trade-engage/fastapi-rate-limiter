@@ -81,7 +81,7 @@ async def _generate_key_based_on_ip(request: Request) -> str:
     ip: str = "unknown"
     if xff:
         ip = xff.split(",")[0].strip()
-    if request.client:
+    elif request.client:
         ip = request.client.host
     return f"ip:{ip}:{request.scope['route'].path}"
 

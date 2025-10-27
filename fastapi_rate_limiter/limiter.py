@@ -65,7 +65,7 @@ async def is_limited(
           window length.
     """
     new_key = f"{namespace_prefix}:{key}"
-    now = time.time()
+    now = int(time.time())
     pipe = redis_client.pipeline()
     pipe.zremrangebyscore(new_key, 0, now - window)
     pipe.zadd(new_key, {now: now})
