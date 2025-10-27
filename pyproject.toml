@@ -1,9 +1,13 @@
 [project]
 name = "fastapi-rate-limiter"
 version = "0.0.3"
-description = "Add your description here"
+description = "FastAPI-compatible Redis-backed sliding-window rate limiter"
 readme = "README.md"
 requires-python = ">=3.11"
+authors = [
+    { name = "TradeEngage Development", email = "development@tradeengage.com" },
+]
+license = { text = "MIT" }
 dependencies = [
     "aioredis>=2.0.1",
     "redis[hiredis]>=7.0.0",
