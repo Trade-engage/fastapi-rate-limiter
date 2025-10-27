@@ -94,6 +94,7 @@ class RateLimit:
     checks the current usage in Redis, and either raises an HTTP 429 or sets
     standard rate-limit headers on the response.
     """
+
     def __init__(
         self,
         limit: int,
@@ -119,7 +120,6 @@ class RateLimit:
         self.window: int = window
         self.fail_mode: Literal["open", "closed", "raise"] = fail_mode
 
-
     async def __call__(self, request: Request, response: Response) -> None:
         """Apply rate limiting for the current request.
 
@@ -144,12 +144,14 @@ class RateLimit:
             - ``X-RateLimit-Reset`` (unix timestamp)
         """
         key = await self.key_function(request)
-        
+
         limiter: RateLimiter = request.app.state.limiter
-        
+
         if not limiter:
-            raise ValueError("Limiter not found in request state, you must initialize the limiter first")
-        
+            raise ValueError(
+                "Limiter not found in request state, you must initialize the limiter first"
+            )
+
         limited, limit, remaining, reset_time = await is_limited(
             redis_client=limiter.redis_client,
             key=key,
