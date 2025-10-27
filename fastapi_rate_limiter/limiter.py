@@ -72,7 +72,6 @@ async def is_limited(
     pipe.zcard(new_key)
     pipe.expire(new_key, window)
     pipe.zrange(new_key, 0, 0, withscores=True)
-    pipe.execute()
     reset_time = int(now + window)
     try:
         _, _, count, _, oldest_timestamp = await pipe.execute()
