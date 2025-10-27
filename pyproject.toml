@@ -1,6 +1,6 @@
 [project]
 name = "fastapi-rate-limiter"
-version = "0.0.5"
+version = "0.0.6"
 description = "FastAPI-compatible Redis-backed sliding-window rate limiter"
 readme = "README.md"
 requires-python = ">=3.11"
